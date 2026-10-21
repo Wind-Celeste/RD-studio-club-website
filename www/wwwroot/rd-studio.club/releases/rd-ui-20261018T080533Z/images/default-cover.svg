@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250">
+  <rect fill="#fce9e5" width="400" height="250"/>
+  <circle cx="330" cy="45" r="72" fill="#f4d0c9"/>
+  <path d="M0 190h60v60H0z" fill="#e9978c"/>
+  <circle cx="70" cy="58" r="16" fill="none" stroke="#d84a43" stroke-width="2"/>
+  <path d="M304 164h52v52h-52z" fill="none" stroke="#d84a43" stroke-width="2" transform="rotate(12 330 190)"/>
+  <text fill="#c83d38" font-family="Arial, sans-serif" font-size="36" font-weight="bold" text-anchor="middle" x="200" y="122">RD</text>
+  <text fill="#74645f" font-family="Arial, sans-serif" font-size="12" letter-spacing="4" text-anchor="middle" x="202" y="151">STUDIO</text>
+</svg>
