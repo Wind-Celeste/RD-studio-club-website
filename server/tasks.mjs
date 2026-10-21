@@ -168,8 +168,18 @@ export function installTaskRoutes(app, db, repository, now = Date.now) {
       const entry = enrollment(task.id, req.user.id)
       if (!entry || !['joined', 'rejected'].includes(entry.state) || !['gamejam', 'proof'].includes(task.type)) fail(409, '此任务不能提交证明')
       const proof = validateEvidence(task, req.body || {}, req.user.id)
-      db.prepare('INSERT INTO task_submissions(id,task_id,user_id,note,url,files,submitted_at) VALUES(?,?,?,?,?,?,?)').run(randomUUID(), task.id, req.user.id, proof.note, proof.url, JSON.stringify(proof.files), now())
-      db.prepare("UPDATE task_enrollments SET state='submitted' WHERE task_id=? AND user_id=?").run(task.id, req.user.id)
+      const subId = randomUUID()
+      const isAdmin = req.user.role === 'admin'
+      const status = isAdmin ? 'approved' : 'pending'
+      db.prepare('INSERT INTO task_submissions(id,task_id,user_id,note,url,files,submitted_at,status,review_note,reviewed_by,reviewed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(
+        subId, task.id, req.user.id, proof.note, proof.url, JSON.stringify(proof.files), now(),
+        status, isAdmin ? '管理员提交证明免审直接通过' : '', isAdmin ? req.user.id : null, isAdmin ? now() : null
+      )
+      if (isAdmin) {
+        award(task, req.user.id, req.user.id)
+      } else {
+        db.prepare("UPDATE task_enrollments SET state='submitted' WHERE task_id=? AND user_id=?").run(task.id, req.user.id)
+      }
     }); res.status(201).json({ ok: true })
   })
   app.get('/api/tasks/reviews', (req, res) => {

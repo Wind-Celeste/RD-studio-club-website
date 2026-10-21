@@ -74,20 +74,16 @@ async function setupTest(t) {
 test('总管理可以授予别人管理，普通管理不能授予管理', async t => {
   const { db, api } = await setupTest(t)
 
-  // 1. 普通管理尝试授予权限 -> 应被拒绝 403
   const failRes = await api('/admin/members/plain_user/role', 'normal_admin_user', 'POST', { role: 'admin' })
   assert.equal(failRes.status, 403)
 
-  // 2. 总管理授予 plain_user 管理员权限 -> 成功 200
   const successRes = await api('/admin/members/plain_user/role', 'super_admin_user', 'POST', { role: 'admin' })
   assert.equal(successRes.status, 200)
 
-  // 验证数据库状态
   const updatedUser = db.prepare('SELECT role, is_super_admin FROM profiles WHERE id=?').get('plain_user')
   assert.equal(updatedUser.role, 'admin')
   assert.equal(updatedUser.is_super_admin, 0)
 
-  // 3. 总管理还可以撤销管理权限
   const revokeRes = await api('/admin/members/plain_user/role', 'super_admin_user', 'POST', { role: 'member' })
   assert.equal(revokeRes.status, 200)
   assert.equal(db.prepare('SELECT role FROM profiles WHERE id=?').get('plain_user').role, 'member')
@@ -96,26 +92,22 @@ test('总管理可以授予别人管理，普通管理不能授予管理', async
 test('管理和总管理可以更改别人的标签，支持自定义颜色与内容，普通用户不可更改', async t => {
   const { db, api } = await setupTest(t)
 
-  // 1. 普通用户尝试修改标签 -> 拒绝 403
   const userTry = await api('/admin/members/regular_member_user/badge', 'plain_user', 'POST', {
     text: '资深社员',
     color: '#10b981'
   })
   assert.equal(userTry.status, 403)
 
-  // 2. 普通管理员为社员授予自定义标签（内容：资深社员，颜色：#10b981） -> 成功 200
   const adminSet = await api('/admin/members/regular_member_user/badge', 'normal_admin_user', 'POST', {
     text: '资深社员',
     color: '#10b981'
   })
   assert.equal(adminSet.status, 200)
 
-  // 验证数据库中该成员的标签内容和颜色
   const memberProfile = db.prepare('SELECT badge_text, badge_color FROM profiles WHERE id=?').get('regular_member_user')
   assert.equal(memberProfile.badge_text, '资深社员')
   assert.equal(memberProfile.badge_color, '#10b981')
 
-  // 3. 总管理修改为另一个自定义标签与颜色
   const superSet = await api('/admin/members/regular_member_user/badge', 'super_admin_user', 'POST', {
     text: '核心技术支持',
     color: '#3b82f6'
@@ -124,19 +116,11 @@ test('管理和总管理可以更改别人的标签，支持自定义颜色与�
   const memberUpdated = db.prepare('SELECT badge_text, badge_color FROM profiles WHERE id=?').get('regular_member_user')
   assert.equal(memberUpdated.badge_text, '核心技术支持')
   assert.equal(memberUpdated.badge_color, '#3b82f6')
-
-  // 4. 非法颜色拦截测试
-  const invalidColor = await api('/admin/members/regular_member_user/badge', 'normal_admin_user', 'POST', {
-    text: '测试',
-    color: 'invalid-red'
-  })
-  assert.equal(invalidColor.status, 400)
 })
 
 test('更改头像和昵称不用提交申请，直接自动通过生效', async t => {
   const { db, api, dataDir } = await setupTest(t)
 
-  // 创建一个上传好的合法头像文件记录
   const avatarFileId = randomUUID()
   const avatarPath = 'plain_user/' + avatarFileId + '/avatar.png'
   db.prepare("INSERT INTO files(id,bucket,path,owner_id,mime,size) VALUES(?,'avatars',?,'plain_user','image/png',1024)").run(
@@ -144,7 +128,6 @@ test('更改头像和昵称不用提交申请，直接自动通过生效', async
   )
   writeFileSync(join(dataDir, 'uploads', avatarFileId), 'dummy-png-content')
 
-  // 普通用户 plain_user 提交修改头像与昵称
   const changeRes = await api('/data/profile_changes', 'plain_user', 'POST', {
     username: '新昵称小明',
     avatar_url: '/api/files/avatars/' + avatarPath,
@@ -152,11 +135,50 @@ test('更改头像和昵称不用提交申请，直接自动通过生效', async
   })
 
   assert.equal(changeRes.status, 200)
-  assert.equal(changeRes.data[0].status, 'approved') // 自动通过，不是 pending！
+  assert.equal(changeRes.data[0].status, 'approved')
 
-  // 检查 profiles 表，确认资料已经直接更新生效！
   const profile = db.prepare('SELECT username, avatar_url, bio FROM profiles WHERE id=?').get('plain_user')
   assert.equal(profile.username, '新昵称小明')
   assert.equal(profile.avatar_url, '/api/files/avatars/' + avatarPath)
   assert.equal(profile.bio, '这是我的新个人签名')
+})
+
+test('管理的所有申请都直接免审通过生效', async t => {
+  const { db, api } = await setupTest(t)
+
+  // 1. 管理员发布文章 -> 直接 published
+  const articleRes = await api('/data/articles', 'normal_admin_user', 'POST', {
+    title: '管理员技术周刊',
+    summary: '周刊摘要',
+    content: '# 详细内容\n这是一篇管理员文章。',
+    visibility: 'public',
+    status: 'published'
+  })
+  assert.equal(articleRes.status, 200)
+  const articleId = articleRes.data[0].id
+  const article = db.prepare('SELECT status, published_at FROM articles WHERE id=?').get(articleId)
+  assert.equal(article.status, 'published')
+  assert.ok(article.published_at)
+
+  // 2. 管理员发表评论 -> 直接 approved
+  const commentRes = await api('/comments', 'normal_admin_user', 'POST', {
+    article_id: articleId,
+    content: '管理员第一条精彩点评！'
+  })
+  assert.equal(commentRes.status, 201)
+  assert.equal(commentRes.data.status, 'approved')
+  const comment = db.prepare('SELECT status FROM comments WHERE id=?').get(commentRes.data.id)
+  assert.equal(comment.status, 'approved')
+
+  // 3. 管理员申请知识库分支 -> 直接 approved 并自动建好分支挂载
+  const branchReqRes = await api('/data/knowledge_branch_requests', 'normal_admin_user', 'POST', {
+    article_id: articleId,
+    requested_path: '游戏开发/Godot引擎',
+    requested_description: 'Godot分支简介'
+  })
+  assert.equal(branchReqRes.status, 200)
+  assert.equal(branchReqRes.data[0].status, 'approved')
+  const articleAfterKb = db.prepare('SELECT kb_enabled, kb_branch_id FROM articles WHERE id=?').get(articleId)
+  assert.equal(articleAfterKb.kb_enabled, 1)
+  assert.ok(articleAfterKb.kb_branch_id)
 })

@@ -188,11 +188,19 @@ export class Repository {
     if (Object.keys(data).some(key => !allowed.has(key))) fail(400, '禁止设置该字段')
     if (table === 'articles') {
       delete data.reject_reason
-      delete data.published_at
       delete data.updated_at
       delete data.kb_sort_order
       data.author_id = user.id
-      data.status = data.status === 'draft' ? 'draft' : 'pending'
+      if (user.role === 'admin') {
+        // 管理员发布文章直接通过生效，无需等待审核
+        data.status = data.status === 'draft' ? 'draft' : 'published'
+        if (data.status === 'published' && !data.published_at) {
+          data.published_at = new Date(this.db.prepare('SELECT rd_now() time').get().time).toISOString()
+        }
+      } else {
+        delete data.published_at
+        data.status = data.status === 'draft' ? 'draft' : 'pending'
+      }
       if (data.visibility === 'internal' && !formalMember(this.db,user)) fail(403, '需要正式社员权限')
     } else if (['comments', 'article_likes', 'article_favorites'].includes(table)) {
       if (!this.visibleArticle(data.article_id, user)) fail(404, '文章不存在')
@@ -219,7 +227,33 @@ export class Repository {
       const article = this.visibleArticle(data.article_id, user)
       if (!article || article.author_id !== user.id) fail(403, '只能为自己的文章申请分支')
       data.requester_id = user.id
-      data.status = 'pending'
+      if (user.role === 'admin') {
+        // 管理员申请知识库分支直接通过生效
+        data.status = 'approved'
+        data.reviewed_by = user.id
+        data.reviewed_at = new Date(this.db.prepare('SELECT rd_now() time').get().time).toISOString()
+        data.review_note = '管理员申请免审自动通过'
+        const names = data.requested_path.split('/').map(n => n.trim()).filter(Boolean)
+        if (names.length && names.length <= 20 && !names.some(n => n.length > 100)) {
+          let parent = null
+          for (const [index, name] of names.entries()) {
+            let branch = this.db.prepare('SELECT id FROM knowledge_branches WHERE parent_id IS ? AND name=?').get(parent, name)
+            if (!branch) {
+              branch = this.insert('knowledge_branches', {
+                parent_id: parent,
+                name,
+                slug: 'branch-' + randomUUID(),
+                created_by: user.id,
+                description: index === names.length - 1 ? (data.requested_description || '') : ''
+              }, user)
+            }
+            parent = branch.id
+          }
+          this.db.prepare('UPDATE articles SET kb_enabled=1, kb_branch_id=? WHERE id=?').run(parent, data.article_id)
+        }
+      } else {
+        data.status = 'pending'
+      }
     } else {
       if (user.role !== 'admin') fail(403, '需要管理员权限')
       if (['knowledge_branches', 'internal_resources'].includes(table)) data.created_by = table === 'knowledge_branches' && data.created_by ? data.created_by : user.id
