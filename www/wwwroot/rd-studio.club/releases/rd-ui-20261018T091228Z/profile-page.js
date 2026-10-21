@@ -124,8 +124,8 @@ async function renderSecurity() {
   } catch (error) { panel.innerHTML = '<h2>账号安全</h2><p class="error-message" role="alert">' + esc(error.message) + '</p><button type="button" id="binding-retry">重试</button>'; $('binding-retry').onclick = renderSecurity }
 }
 
-function roleText(role) { return role === 'admin' ? '管理员' : '社员' }
-function roleDesc(role) { return role === 'admin' ? '拥有审核与后台管理权限' : '可以发布文章、收藏内容和参与讨论' }
+function roleText(role, is_super) { if (is_super) return '总管理'; return role === 'admin' ? '管理员' : '社员' }
+function roleDesc(role, is_super) { if (is_super) return '拥有最高管理权限、管理员任命与全站成员管理权'; return role === 'admin' ? '拥有审核与后台管理权限' : '可以发布文章、收藏内容和参与讨论' }
 
 function setProfile(session, profile) {
   var meta = session.user.user_metadata || {}
@@ -162,10 +162,27 @@ function setProfile(session, profile) {
   var previous = $('profile-experience')
   if (previous) previous.remove()
   $('profile-name').insertAdjacentElement('afterend', identity)
+  if (role === 'admin') {
+    var adminBtn = document.createElement('a')
+    adminBtn.id = 'profile-admin-entry'
+    adminBtn.className = 'profile-experience'
+    adminBtn.href = '/admin/members.html'
+    adminBtn.style.marginLeft = '8px'
+    adminBtn.style.background = '#2563eb'
+    adminBtn.style.color = '#ffffff'
+    adminBtn.style.padding = '2px 10px'
+    adminBtn.style.borderRadius = '6px'
+    adminBtn.style.textDecoration = 'none'
+    adminBtn.style.fontWeight = '500'
+    adminBtn.textContent = '👑 社员权限与称号'
+    var oldAdminBtn = $('profile-admin-entry')
+    if (oldAdminBtn) oldAdminBtn.remove()
+    identity.insertAdjacentElement('afterend', adminBtn)
+  }
   $('profile-email').textContent = session.user.email || ''
   $('profile-bio').textContent = state.profile.bio || '还没有填写个人简介'
-  $('role-label').textContent = roleText(role)
-  $('role-desc').textContent = roleDesc(role)
+  $('role-label').textContent = roleText(role, profile.is_super_admin)
+  $('role-desc').textContent = roleDesc(role, profile.is_super_admin)
   $('avatar-frame').className = 'avatar-frame ' + (role === 'admin' ? 'admin-frame' : 'member-frame')
   $('role-block').className = 'role-block ' + (role === 'admin' ? 'admin-role' : 'member-role')
 }
