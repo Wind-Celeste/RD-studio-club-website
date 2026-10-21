@@ -26,16 +26,10 @@ export function installCommentRoutes(app, db, repository, now = Date.now) {
     if (parent !== null && (typeof parent !== 'string' || !db.prepare("SELECT 1 FROM comments WHERE id=? AND article_id=? AND status='approved'").get(parent, article.id))) fail(400, '回复的评论不可用')
     const result = repository.transaction(() => {
       const id = randomUUID()
-      const isAdmin = req.user.role === 'admin'
-      const status = isAdmin ? 'approved' : 'pending'
       const time = new Date(now()).toISOString()
-      db.prepare('INSERT INTO comments(id,article_id,user_id,content,parent_id,created_at) VALUES(?,?,?,?,?,?)').run(id, article.id, req.user.id, content.trim(), parent, time)
-      if (isAdmin) {
-        // 管理员发表评论直接通过生效
-        db.prepare('UPDATE comments SET status=?,review_note=?,reviewed_by=?,reviewed_at=? WHERE id=?').run('approved', '管理员评论免审直接通过', req.user.id, now(), id)
-        db.prepare('UPDATE articles SET comments_count=comments_count+1 WHERE id=?').run(article.id)
-      }
-      return { id, status }
+      // 去掉评论审核：所有用户发表评论免审直接通过生效
+      db.prepare("INSERT INTO comments(id,article_id,user_id,content,parent_id,created_at,status,review_note,reviewed_at) VALUES(?,?,?,?,?,?,'approved','免审直接发布',?)").run(id, article.id, req.user.id, content.trim(), parent, time, now())
+      return { id, status: 'approved' }
     })
     res.status(201).json(result)
   })

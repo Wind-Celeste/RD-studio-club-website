@@ -345,9 +345,7 @@ function renderCards(id, title, subtitle, items, emptyText, label, key) {
 }
 
 function renderSettings() {
-  var selfApproved = state.profile.role === 'admin'
-  var pending = state.profileChanges.length ? '<div class="pending-review-box"><strong>待审核资料</strong><p>你有 ' + state.profileChanges.length + ' 条个人信息修改正在等待管理员审核。新的提交会继续进入审核队列。</p></div>' : ''
-  $('panel-settings').innerHTML = '<div class="settings-card"><div id="settings-success" class="success-message" style="display:none"></div><div id="settings-error" class="error-message" style="display:none"></div>' + pending + '<div class="settings-avatar-row"><img id="settings-avatar" src="' + esc(state.profile.avatar) + '" alt="头像预览"><label id="upload-button" class="upload-button">点击或拖拽上传头像<input id="avatar-input" type="file" accept="image/*"></label></div><div class="settings-form"><label><span>修改昵称</span><input id="settings-username" type="text" maxlength="40" value="' + esc(state.profile.username) + '"></label><label><span>个人简介</span><textarea id="settings-bio" rows="4" maxlength="160">' + esc(state.profile.bio) + '</textarea></label><p class="form-note">' + (selfApproved ? '管理员本人的头像、昵称和简介保存后立即生效。' : '头像、昵称和简介修改都会提交给管理员审核，通过后才会在站内生效。') + '</p><button id="settings-submit" class="submit-button" type="button" onclick="saveProfileSettings()">' + (selfApproved ? '保存资料' : '提交审核') + '</button></div></div>'
+  $('panel-settings').innerHTML = '<div class="settings-card"><div id="settings-success" class="success-message" style="display:none"></div><div id="settings-error" class="error-message" style="display:none"></div><div class="settings-avatar-row"><img id="settings-avatar" src="' + esc(state.profile.avatar) + '" alt="头像预览"><label id="upload-button" class="upload-button">点击或拖拽上传头像<input id="avatar-input" type="file" accept="image/*"></label></div><div class="settings-form"><label><span>修改昵称</span><input id="settings-username" type="text" maxlength="40" value="' + esc(state.profile.username) + '"></label><label><span>个人简介</span><textarea id="settings-bio" rows="4" maxlength="160">' + esc(state.profile.bio) + '</textarea></label><p class="form-note">头像、昵称和简介保存后直接生效，无需审核。</p><button id="settings-submit" class="submit-button" type="button" onclick="saveProfileSettings()">保存资料</button></div></div>'
   $('avatar-input').addEventListener('change', uploadAvatar)
   var uploadButton = $('upload-button')
   if (uploadButton) {
@@ -432,7 +430,7 @@ async function saveSettings() {
     settingError('提交失败：' + (err.message || '未知错误'))
   } finally {
     button.disabled = false
-    button.textContent = state.profile.role === 'admin' ? '保存资料' : '提交审核'
+    button.textContent = '保存资料'
   }
 }
 

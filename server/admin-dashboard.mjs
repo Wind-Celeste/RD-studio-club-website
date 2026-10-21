@@ -4,9 +4,7 @@ import {formalMember} from './experience.mjs'
 import {adminAudit} from './admin-audit.mjs'
 const sections=[
   {kind:'article',label:'文章',table:'articles',owner:'author_id',title:'title',preview:'summary',href:'/admin/articles'},
-  {kind:'comment',label:'评论',table:'comments',owner:'user_id',title:"'评论'",preview:'content',href:'/admin/comments/'},
   {kind:'catalog',label:'游戏/工具',table:'catalog_items',owner:'author_id',title:'title',preview:'summary',href:'/games-tools/?scope=review'},
-  {kind:'profile',label:'个人资料',table:'profile_changes',owner:'user_id',title:"'个人资料修改'",preview:'bio',href:'/admin/profile-review'},
   {kind:'branch',label:'知识库申请',table:'knowledge_branch_requests',owner:'requester_id',title:'requested_path',preview:'requested_description',href:'/admin/kb'},
   {kind:'proof',label:'任务证明',table:'task_submissions',owner:'user_id',title:"'任务证明'",preview:'note',href:'/admin/tasks?view=reviews'}
 ]
