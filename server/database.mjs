@@ -9,7 +9,7 @@ export function openDatabase(path) {
   db.function('rd_now', Date.now)
   db.exec('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;')
   const version = db.prepare('PRAGMA user_version').get().user_version
-  if (version > 16) { db.close(); throw new Error('Database version is newer than this server') }
+  if (version > 17) { db.close(); throw new Error('Database version is newer than this server') }
   db.exec('BEGIN IMMEDIATE')
   try {
     db.exec(readFileSync(new URL('./schema.sql', import.meta.url), 'utf8'))
@@ -28,7 +28,8 @@ export function openDatabase(path) {
     if (version < 14) db.exec(readFileSync(new URL('./migrations/014-pause-currency.sql', import.meta.url), 'utf8'))
     if (version < 15) db.exec(readFileSync(new URL('./migrations/015-catalog-download-links.sql', import.meta.url), 'utf8'))
     if (version < 16) db.exec(readFileSync(new URL('./migrations/016-super-admin-and-badges.sql', import.meta.url), 'utf8'))
-    db.exec('PRAGMA user_version=16; COMMIT')
+    if (version < 17) db.exec(readFileSync(new URL('./migrations/017-mengya-portfolio.sql', import.meta.url), 'utf8'))
+    db.exec('PRAGMA user_version=17; COMMIT')
   } catch (error) { db.exec('ROLLBACK'); db.close(); throw error }
   return db
 }

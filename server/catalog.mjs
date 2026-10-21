@@ -74,6 +74,7 @@ export function installCatalogRoutes(app, db, repository, config) {
     if (scope === 'mine') { conditions.push('i.author_id=?'); args.push(logged(req).id) }
     else if (scope === 'review') { admin(req); conditions.push("i.status='pending'") }
     else conditions.push("i.status='published'")
+    if (req.query.publisher) { conditions.push('i.author_id=?'); args.push(req.query.publisher) }
     if (kind) { conditions.push('i.kind=?'); args.push(kind) }
     if (query) { conditions.push("(i.title LIKE ? ESCAPE '\\' OR i.summary LIKE ? ESCAPE '\\')"); const escaped=query.replace(/[\\%_]/g,'\\$&');args.push('%'+escaped+'%','%'+escaped+'%') }
     const rows = db.prepare('SELECT i.*,p.username,p.avatar_url FROM catalog_items i JOIN profiles p ON p.id=i.author_id WHERE '+conditions.join(' AND ')+' ORDER BY i.updated_at DESC,i.id LIMIT 25 OFFSET ?').all(...args,offset)
@@ -101,7 +102,7 @@ export function installCatalogRoutes(app, db, repository, config) {
   })
   app.put('/api/catalog/:id', (req,res) => {
     const user=logged(req), row=item(req.params.id,user)
-    if (row.author_id !== user.id) fail(403,'只能编辑自己的作品')
+    if (row.author_id !== user.id && !(row.author_id === 'system-mengya-portfolio' && user.role === 'admin')) fail(403,'只能编辑自己的作品或官方萌芽作品集')
     if(req.body?.author_id!==undefined&&req.body.author_id!==row.author_id)fail(403,'不能更改已有作品的发布用户')
     if (!Number.isInteger(req.body?.revision) || req.body.revision<1) fail(400,'无效的作品版本')
     const data=payload(req.body,user,row), fields=Object.keys(data)
@@ -111,7 +112,7 @@ export function installCatalogRoutes(app, db, repository, config) {
   })
   app.post('/api/catalog/:id/withdraw', (req,res) => {
     const user=logged(req),row=item(req.params.id,user)
-    if(row.author_id!==user.id)fail(403,'只能撤回自己的作品')
+    if(row.author_id!==user.id && !(row.author_id === 'system-mengya-portfolio' && user.role === 'admin'))fail(403,'只能撤回自己的作品或官方萌芽作品集')
     if(!Number.isInteger(req.body?.revision) || req.body.revision<1)fail(400,'无效的作品版本')
     if(!['published','pending'].includes(row.status))fail(409,'作品已不在发布或待审核状态，请刷新列表')
     repository.transaction(()=>{
