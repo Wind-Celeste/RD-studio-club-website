@@ -7,7 +7,7 @@ const tables = new Set(['profiles', 'articles', 'article_likes', 'article_favori
   'knowledge_branches', 'knowledge_branch_requests', 'profile_changes', 'internal_resources'])
 const counters = new Set(['likes_count', 'comments_count', 'views_count'])
 const editable = {
-  profiles: ['username', 'full_name', 'avatar_url', 'bio', 'role'],
+  profiles: ['username', 'full_name', 'avatar_url', 'bio', 'role', 'is_super_admin', 'badge_text', 'badge_color'],
   articles: ['title', 'summary', 'content', 'cover_url', 'tags', 'visibility', 'status', 'reject_reason',
     'kb_enabled', 'kb_branch_id', 'kb_sort_order', 'published_at', 'updated_at'],
   comments: ['content'],
@@ -201,7 +201,6 @@ export class Repository {
       const keys = ['username', 'avatar_url', 'bio', 'user_id', 'status']
       if (Object.keys(data).some(key => !keys.includes(key))) fail(403, '禁止设置审核字段')
       data.user_id = user.id
-      data.status = 'pending'
       if(data.avatar_url){
         let path
         try{path=decodeURIComponent(new URL(data.avatar_url,'https://local.invalid').pathname)}catch{fail(400,'无效的头像地址')}
@@ -210,12 +209,11 @@ export class Repository {
         if(!file||file.owner_id!==user.id||!file.mime.startsWith('image/')||file.size>2*1024*1024)fail(400,'请选择本人上传的头像图片')
         data.avatar_url=path
       }
-      if (user.role === 'admin') {
-        data.status = 'approved'
-        data.reviewed_by = user.id
-        data.reviewed_at = new Date(this.db.prepare('SELECT rd_now() time').get().time).toISOString()
-        data.review_note = '管理员本人资料免审通过'
-      }
+      // 头像和昵称等个人资料修改免审，直接自动通过生效
+      data.status = 'approved'
+      data.reviewed_by = user.id
+      data.reviewed_at = new Date(this.db.prepare('SELECT rd_now() time').get().time).toISOString()
+      data.review_note = '个人资料修改免审自动通过'
     } else if (table === 'knowledge_branch_requests') {
       if (Object.keys(data).some(key => !['article_id', 'requester_id', 'requested_path', 'requested_description', 'status'].includes(key))) fail(403, '禁止设置审核字段')
       const article = this.visibleArticle(data.article_id, user)

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>成员与标签管理 | RD STUDIO 管理后台</title>
+  <link rel="stylesheet" href="/assets/style.BO9XlYXh.css">
+  <style>
+    .admin-container { max-width: 1100px; margin: 40px auto; padding: 0 20px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .page-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .page-title h1 { font-size: 26px; font-weight: 700; color: var(--vp-c-text-1, #1e293b); margin: 0; }
+    .back-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; color: #475569; text-decoration: none; font-size: 14px; font-weight: 500; cursor: pointer; }
+    .back-btn:hover { background: #f8fafc; }
+    .toolbar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    .search-box { flex: 1; min-width: 240px; padding: 8px 14px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; }
+    .role-select { padding: 8px 14px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; background: #fff; }
+    .member-card { background: var(--vp-c-bg-soft, #ffffff); border: 1px solid var(--vp-c-divider, #e2e8f0); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .member-info { display: flex; align-items: center; gap: 14px; flex: 1; }
+    .member-avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid #e2e8f0; }
+    .member-meta h3 { margin: 0 0 4px 0; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .role-tag { font-size: 11px; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
+    .role-super { background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; }
+    .role-admin { background: #eff6ff; color: #3b82f6; border: 1px solid #bfdbfe; }
+    .role-member { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .role-user { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
+    .custom-badge { font-size: 12px; padding: 2px 9px; border-radius: 9999px; color: #fff; font-weight: 500; display: inline-block; vertical-align: middle; }
+    .member-sub { font-size: 13px; color: #64748b; margin: 0; }
+    .member-actions { display: flex; gap: 8px; align-items: center; }
+    .btn-action { padding: 6px 12px; font-size: 13px; font-weight: 500; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; transition: all 0.15s; }
+    .btn-action:hover { background: #f1f5f9; }
+    .btn-primary { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+    .btn-primary:hover { background: #2563eb; }
+    /* Modal */
+    .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-backdrop.active { display: flex; }
+    .modal-content { background: #fff; width: 92%; max-width: 480px; border-radius: 12px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+    .modal-header h3 { margin: 0; font-size: 18px; font-weight: 600; }
+    .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #64748b; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 500; color: #475569; margin-bottom: 6px; }
+    .form-group input { width: 100%; box-sizing: border-box; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; }
+    .color-presets { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+    .color-dot { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 0 1px #cbd5e1; }
+    .color-dot:hover { transform: scale(1.1); }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+    .badge-preview-box { background: #f8fafc; border: 1px dashed #cbd5e1; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div class="admin-container">
+    <div class="page-title">
+      <div>
+        <p style="margin: 0 0 4px 0; font-size: 13px; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">RD STUDIO · 管理系统</p>
+        <h1>成员权限与标签管理</h1>
+      </div>
+      <a href="/admin" class="back-btn">← 返回后台总览</a>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" id="searchInput" class="search-box" placeholder="搜索用户名、全名或标签内容..." oninput="debounceSearch()">
+      <select id="roleFilter" class="role-select" onchange="loadMembers()">
+        <option value="">全部身份等级</option>
+        <option value="admin">管理员</option>
+        <option value="member">正式社员</option>
+        <option value="user">普通社员/用户</option>
+      </select>
+    </div>
+
+    <div id="loading" style="text-align: center; padding: 40px; color: #64748b;">正在加载成员列表...</div>
+    <div id="memberList"></div>
+  </div>
+
+  <!-- 标签修改弹窗 -->
+  <div id="badgeModal" class="modal-backdrop">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="badgeModalTitle">自定义成员标签</h3>
+        <button class="modal-close" onclick="closeBadgeModal()">×</button>
+      </div>
+      <div class="badge-preview-box">
+        <span style="font-size: 13px; color: #64748b;">效果预览：</span>
+        <span id="badgePreview" class="custom-badge" style="background-color: #10b981;">资深社员</span>
+      </div>
+      <div class="form-group">
+        <label>标签文本（如：资深社员、核心开发等，留空可清除）</label>
+        <input type="text" id="badgeTextInput" maxlength="30" placeholder="例如：资深社员" oninput="updateBadgePreview()">
+      </div>
+      <div class="form-group">
+        <label>标签颜色（十六进制色值）</label>
+        <input type="text" id="badgeColorInput" placeholder="#10b981" oninput="updateBadgePreview()">
+        <div class="color-presets">
+          <div class="color-dot" style="background:#10b981;" onclick="pickColor('#10b981')"></div>
+          <div class="color-dot" style="background:#3b82f6;" onclick="pickColor('#3b82f6')"></div>
+          <div class="color-dot" style="background:#8b5cf6;" onclick="pickColor('#8b5cf6')"></div>
+          <div class="color-dot" style="background:#f59e0b;" onclick="pickColor('#f59e0b')"></div>
+          <div class="color-dot" style="background:#ef4444;" onclick="pickColor('#ef4444')"></div>
+          <div class="color-dot" style="background:#06b6d4;" onclick="pickColor('#06b6d4')"></div>
+          <div class="color-dot" style="background:#475569;" onclick="pickColor('#475569')"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action" onclick="closeBadgeModal()">取消</button>
+        <button class="btn-action btn-primary" onclick="submitBadge()">保存标签</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentSession = null;
+    let currentTargetId = null;
+    let searchTimeout = null;
+
+    async function init() {
+      try {
+        const res = await fetch('/api/auth/session');
+        const data = await res.json();
+        currentSession = data.session?.user;
+        if (!currentSession || currentSession.app_metadata.role !== 'admin') {
+          alert('需要管理员权限访问');
+          window.location.href = '/login';
+          return;
+        }
+        loadMembers();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function loadMembers() {
+      const q = document.getElementById('searchInput').value;
+      const role = document.getElementById('roleFilter').value;
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('memberList').innerHTML = '';
+
+      try {
+        const res = await fetch(`/api/admin/members?q=${encodeURIComponent(q)}&role=${encodeURIComponent(role)}`);
+        const data = await res.json();
+        document.getElementById('loading').style.display = 'none';
+
+        if (!data.items || !data.items.length) {
+          document.getElementById('memberList').innerHTML = '<p style="text-align:center; color:#94a3b8; padding:30px;">未找到匹配成员</p>';
+          return;
+        }
+
+        const isSuper = Boolean(currentSession?.app_metadata?.is_super_admin);
+
+        document.getElementById('memberList').innerHTML = data.items.map(m => {
+          const roleClass = m.is_super_admin ? 'role-super' : m.role === 'admin' ? 'role-admin' : m.role === 'member' ? 'role-member' : 'role-user';
+          const roleName = m.is_super_admin ? '总管理' : m.role === 'admin' ? '管理员' : m.role === 'member' ? '正式社员' : '社员';
+          const badgeHtml = m.badge_text ? `<span class="custom-badge" style="background-color: ${m.badge_color || '#3b82f6'};">${escapeHtml(m.badge_text)}</span>` : '';
+
+          let roleButtonHtml = '';
+          if (isSuper && m.id !== currentSession.id) {
+            if (m.role === 'admin') {
+              roleButtonHtml = `<button class="btn-action" style="color:#ef4444;" onclick="changeRole('${m.id}', 'member')">撤销管理</button>`;
+            } else {
+              roleButtonHtml = `<button class="btn-action" style="color:#3b82f6;" onclick="changeRole('${m.id}', 'admin')">设为管理</button>`;
+            }
+          }
+
+          return `
+            <div class="member-card">
+              <div class="member-info">
+                <img class="member-avatar" src="${m.avatar_url || '/images/default-avatar.svg'}" onerror="this.src='/images/default-avatar.svg'">
+                <div class="member-meta">
+                  <h3>
+                    <span>${escapeHtml(m.username)}</span>
+                    <span class="role-tag ${roleClass}">${roleName}</span>
+                    ${badgeHtml}
+                  </h3>
+                  <p class="member-sub">GitHub: @${escapeHtml(m.github_username || '-')} · 加入时间: ${new Date(m.created_at).toLocaleDateString()}</p>
+                </div>
+              </div>
+              <div class="member-actions">
+                ${roleButtonHtml}
+                <button class="btn-action" onclick="openBadgeModal('${m.id}', '${escapeAttr(m.username)}', '${escapeAttr(m.badge_text || '')}', '${escapeAttr(m.badge_color || '')}')">编辑标签</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        document.getElementById('loading').textContent = '加载失败: ' + err.message;
+      }
+    }
+
+    function debounceSearch() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(loadMembers, 300);
+    }
+
+    async function changeRole(userId, newRole) {
+      if (!confirm(`确定要将该成员身份设为【${newRole === 'admin' ? '管理员' : '普通社员'}】吗？`)) return;
+      try {
+        const res = await fetch(`/api/admin/members/${userId}/role`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-RD-CSRF': '1' },
+          body: JSON.stringify({ role: newRole })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || '操作失败');
+        loadMembers();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    function openBadgeModal(id, username, text, color) {
+      currentTargetId = id;
+      document.getElementById('badgeModalTitle').textContent = `编辑【${username}】的专属标签`;
+      document.getElementById('badgeTextInput').value = text || '';
+      document.getElementById('badgeColorInput').value = color || '#10b981';
+      updateBadgePreview();
+      document.getElementById('badgeModal').classList.add('active');
+    }
+
+    function closeBadgeModal() {
+      document.getElementById('badgeModal').classList.remove('active');
+    }
+
+    function pickColor(hex) {
+      document.getElementById('badgeColorInput').value = hex;
+      updateBadgePreview();
+    }
+
+    function updateBadgePreview() {
+      const text = document.getElementById('badgeTextInput').value.trim() || '标签预览';
+      const color = document.getElementById('badgeColorInput').value.trim() || '#10b981';
+      const preview = document.getElementById('badgePreview');
+      preview.textContent = text;
+      preview.style.backgroundColor = color;
+    }
+
+    async function submitBadge() {
+      const text = document.getElementById('badgeTextInput').value.trim();
+      const color = document.getElementById('badgeColorInput').value.trim();
+      try {
+        const res = await fetch(`/api/admin/members/${currentTargetId}/badge`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-RD-CSRF': '1' },
+          body: JSON.stringify({ text, color })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || '设置失败');
+        closeBadgeModal();
+        loadMembers();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    function escapeHtml(str) {
+      return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function escapeAttr(str) {
+      return (str || '').replace(/'/g, "\\'");
+    }
+
+    init();
+  </script>
+</body>
+</html>

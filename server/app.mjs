@@ -112,8 +112,20 @@ export function createApp(db, config) {
     const user = req.user
     res.json({ session: user ? { user: {
       id: user.id, email: user.email || '',
-      user_metadata: { user_name: user.username, full_name: user.full_name, avatar_url: user.avatar_url },
-      app_metadata: { role: user.role }
+      user_metadata: {
+        user_name: user.username,
+        full_name: user.full_name,
+        avatar_url: user.avatar_url,
+        badge_text: user.badge_text || '',
+        badge_color: user.badge_color || '',
+        is_super_admin: Boolean(user.is_super_admin)
+      },
+      app_metadata: {
+        role: user.role,
+        is_super_admin: Boolean(user.is_super_admin),
+        badge_text: user.badge_text || '',
+        badge_color: user.badge_color || ''
+      }
     } } : null })
   })
   const oauthLimit = rateLimit({ windowMs: 60000, limit: 15, standardHeaders: 'draft-8', legacyHeaders: false })

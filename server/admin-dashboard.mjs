@@ -90,4 +90,93 @@ export function installAdminDashboard(app,db,repository,now=Date.now){
       adminAudit(db,req.user,'分支审核','branch',row.id,approved?'通过':note,now())
     });res.json({ok:true})
   })
+  // 成员与权限管理
+  app.get('/api/admin/members', (req, res) => {
+    const q = text(req.query.q || '', 100, false)
+    const role = req.query.role || ''
+    const offset = offsetOf(req)
+    const conditions = ["1=1"]
+    const args = []
+    if (role && ['user', 'member', 'admin'].includes(role)) {
+      conditions.push("p.role=?")
+      args.push(role)
+    }
+    if (q) {
+      conditions.push("(instr(lower(p.username), lower(?)) > 0 OR instr(lower(coalesce(p.full_name,'')), lower(?)) > 0 OR instr(lower(coalesce(p.badge_text,'')), lower(?)) > 0)")
+      args.push(q, q, q)
+    }
+    const rows = db.prepare(`SELECT p.id, p.username, p.full_name, p.avatar_url, p.role, p.is_super_admin, p.badge_text, p.badge_color, p.created_at, u.github_username FROM profiles p JOIN users u ON u.id=p.id WHERE ${conditions.join(' AND ')} ORDER BY p.is_super_admin DESC, CASE p.role WHEN 'admin' THEN 1 WHEN 'member' THEN 2 ELSE 3 END, p.created_at DESC LIMIT 31 OFFSET ?`).all(...args, offset)
+    res.json({ items: rows.slice(0, 30), has_more: rows.length > 30 })
+  })
+
+  // 总管理授予/调整管理员权限
+  app.post('/api/admin/members/:id/role', (req, res) => {
+    if (!req.user.is_super_admin) fail(403, '只有总管理可以授予或调整管理权限')
+    const targetId = req.params.id
+    const target = db.prepare('SELECT p.* FROM profiles p WHERE p.id=?').get(targetId)
+    if (!target) fail(404, '目标成员不存在')
+    const nextRole = req.body?.role
+    if (!['user', 'member', 'admin'].includes(nextRole)) fail(400, '无效的成员权限等级')
+    if (target.id === req.user.id && nextRole !== 'admin') fail(400, '总管理不能降级自己的管理权限')
+
+    repository.transaction(() => {
+      const isSuper = nextRole === 'admin' ? target.is_super_admin : 0
+      db.prepare('UPDATE profiles SET role=?, is_super_admin=?, updated_at=? WHERE id=?').run(
+        nextRole,
+        isSuper,
+        new Date(now()).toISOString(),
+        target.id
+      )
+      adminAudit(db, req.user, '调整成员角色', 'member', target.id, `将成员 ${target.username} 的权限调整为: ${nextRole}`, now())
+    })
+    res.json({ ok: true, id: target.id, role: nextRole })
+  })
+
+  // 总管理授予/撤销总管理权限
+  app.post('/api/admin/members/:id/super-admin', (req, res) => {
+    if (!req.user.is_super_admin) fail(403, '只有总管理可以授予总管理权限')
+    const targetId = req.params.id
+    const target = db.prepare('SELECT p.* FROM profiles p WHERE p.id=?').get(targetId)
+    if (!target) fail(404, '目标成员不存在')
+    const isSuper = Boolean(req.body?.is_super_admin)
+    if (target.id === req.user.id && !isSuper) fail(400, '不能撤销自己的总管理身份')
+
+    repository.transaction(() => {
+      db.prepare("UPDATE profiles SET is_super_admin=?, role=CASE WHEN ?=1 THEN 'admin' ELSE role END, updated_at=? WHERE id=?").run(
+        isSuper ? 1 : 0,
+        isSuper ? 1 : 0,
+        new Date(now()).toISOString(),
+        target.id
+      )
+      adminAudit(db, req.user, isSuper ? '任命总管理' : '撤销总管理', 'member', target.id, `目标用户: ${target.username}`, now())
+    })
+    res.json({ ok: true, id: target.id, is_super_admin: isSuper })
+  })
+
+  // 授予/自定义成员标签（只有管理和总管理可以操作，支持自定义颜色与内容）
+  app.post('/api/admin/members/:id/badge', (req, res) => {
+    if (req.user.role !== 'admin' && !req.user.is_super_admin) fail(403, '只有管理员和总管理员可以授予或修改标签')
+    const targetId = req.params.id
+    const target = db.prepare('SELECT p.* FROM profiles p WHERE p.id=?').get(targetId)
+    if (!target) fail(404, '目标成员不存在')
+
+    const rawText = typeof req.body?.text === 'string' ? req.body.text.trim() : ''
+    const rawColor = typeof req.body?.color === 'string' ? req.body.color.trim() : ''
+
+    if (rawText.length > 30) fail(400, '标签内容最长不超过 30 个字符')
+    if (rawColor && !/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(rawColor)) {
+      fail(400, '标签颜色必须为合法的十六进制颜色码（例如 #10b981）')
+    }
+
+    repository.transaction(() => {
+      db.prepare('UPDATE profiles SET badge_text=?, badge_color=?, updated_at=? WHERE id=?').run(
+        rawText,
+        rawColor,
+        new Date(now()).toISOString(),
+        target.id
+      )
+      adminAudit(db, req.user, '设置成员标签', 'member', target.id, `为 ${target.username} 设置标签: "${rawText}", 颜色: "${rawColor}"`, now())
+    })
+    res.json({ ok: true, id: target.id, badge_text: rawText, badge_color: rawColor })
+  })
 }

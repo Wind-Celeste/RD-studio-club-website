@@ -136,6 +136,24 @@ function setProfile(session, profile) {
   $('profile-avatar').src = avatar
   $('profile-avatar').onerror = function() { this.onerror = null; this.src = '/images/default-avatar.svg' }
   $('profile-name').textContent = name
+  if (profile.badge_text) {
+    var customBadge = document.createElement('span')
+    customBadge.id = 'profile-custom-badge'
+    customBadge.className = 'rd-custom-badge'
+    customBadge.textContent = profile.badge_text
+    customBadge.style.backgroundColor = profile.badge_color || '#3b82f6'
+    customBadge.style.color = '#ffffff'
+    customBadge.style.padding = '2px 8px'
+    customBadge.style.borderRadius = '9999px'
+    customBadge.style.fontSize = '12px'
+    customBadge.style.fontWeight = '500'
+    customBadge.style.marginLeft = '8px'
+    customBadge.style.display = 'inline-block'
+    customBadge.style.verticalAlign = 'middle'
+    var oldBadge = $('profile-custom-badge')
+    if (oldBadge) oldBadge.remove()
+    $('profile-name').appendChild(customBadge)
+  }
   var identity = document.createElement('a')
   identity.id = 'profile-experience'
   identity.className = 'profile-experience'
@@ -153,7 +171,7 @@ function setProfile(session, profile) {
 }
 
 async function loadProfile() {
-  var r = await state.sb.from('profiles').select('id, username, avatar_url, bio, role').eq('id', state.uid).maybeSingle()
+  var r = await state.sb.from('profiles').select('id, username, avatar_url, bio, role, is_super_admin, badge_text, badge_color').eq('id', state.uid).maybeSingle()
   return r.data || {}
 }
 
