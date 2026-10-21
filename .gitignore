@@ -1,2 +1,6 @@
 ﻿rd-studio-backup.tar.gz
 *.tar.gz
+
+node_modules/
+server/node_modules/
+*.zip
